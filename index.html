@@ -49,7 +49,7 @@
       <div class="section-title">
         <h2>Cumul par mois</h2>
         <div class="legend">
-          <span style="--c:linear-gradient(#5fd3ff,#3a86ff)">Cette année</span>
+          <span id="legYear">Cette année</span>
           <span class="dash">Moyenne des autres années</span>
         </div>
       </div>
@@ -58,7 +58,6 @@
     <div class="card">
       <div class="section-title">
         <h2>Totaux annuels</h2>
-        <div class="legend"><span style="--c:var(--gold)">Année sélectionnée</span></div>
       </div>
       <div id="yearChart"></div>
     </div>
@@ -99,7 +98,7 @@
 
 <script src="config.js"></script>
 <script type="module">
-import { $, fmt, fmtDate, MOIS, loadData, years, yearEntries, monthlyTotals, monthlyAverage, cumulTo, records, todayISO, drawBars, buildRain } from './common.js';
+import { $, fmt, fmtDate, MOIS, loadData, years, yearEntries, monthlyTotals, monthlyAverage, yearColor, cumulTo, records, todayISO, drawBars, buildRain } from './common.js';
 
 let data = {};
 
@@ -121,11 +120,12 @@ function render(){
   $('sRainy').textContent = rainy;
   $('sRainyHint').textContent = entries.length ? `${Math.round(rainy / entries.length * 100)} % des relevés` : '';
 
-  drawBars($('monthChart'), MOIS, t, { overlay: monthlyAverage(data, y) });
+  $('legYear').style.setProperty('--c', yearColor(y));
+  drawBars($('monthChart'), MOIS, t, { overlay: monthlyAverage(data, y), colors: MOIS.map(() => yearColor(y)) });
 
   const ys = years(data).filter(yy => yearEntries(data, yy).length);
   const totals = ys.map(yy => yearEntries(data, yy).reduce((a, [, v]) => a + v, 0));
-  drawBars($('yearChart'), ys.map(String), totals, { highlight: ys.indexOf(y) });
+  drawBars($('yearChart'), ys.map(String), totals, { colors: ys.map(yearColor) });
 
   // Comparaison à date : année en cours = jusqu'à aujourd'hui, année passée = année entière.
   const md = y === new Date().getFullYear() ? todayISO().slice(5) : '12-31';
@@ -138,7 +138,7 @@ function render(){
     const avg = others.reduce((a, b) => a + b, 0) / others.length, d = cumulTo(data, y, md) - avg;
     $('cmpVal').textContent = `${d >= 0 ? '+' : '−'}${fmt(Math.abs(d))} mm`;
   } else { $('cmpVal').textContent = '—'; $('cmpHint').textContent = 'Pas d\'autre année à comparer'; }
-  drawBars($('cmpChart'), ysAll.map(String), at, { highlight: ysAll.indexOf(y) });
+  drawBars($('cmpChart'), ysAll.map(String), at, { colors: ysAll.map(yearColor) });
 
   const r = records(data);
   const row = (l, v, s) => v ? `<tr><td>${l}</td><td class="num">${v}<br><small>${s}</small></td></tr>` : '';

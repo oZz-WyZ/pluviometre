@@ -134,7 +134,11 @@ function niceCeil(x){
   return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p;
 }
 
-export function drawBars(el, labels, values, {overlay = null, highlight = null} = {}){
+// Une couleur stable par année (la même partout). L'or est réservé à la ligne de moyenne.
+const PALETTE = ['#5fd3ff','#7bdc9a','#ff8fab','#b794f6','#ff9f68','#4dd4c6','#c3d96b','#6f9bff'];
+export const yearColor = y => PALETTE[y % PALETTE.length];
+
+export function drawBars(el, labels, values, {overlay = null, colors = null} = {}){
   // SVG à l'échelle 1:1 (viewBox = largeur réelle) pour garder des textes de 14 px lisibles.
   const W = Math.max(280, el.clientWidth || 760), H = 300, P = {t: 30, r: 12, b: 40, l: 52};
   const max = Math.max(1, ...values.map(v => v || 0), ...(overlay || []).map(v => v || 0));
@@ -152,7 +156,7 @@ export function drawBars(el, labels, values, {overlay = null, highlight = null} 
   const narrow = bw < 44 && labels.length === 12; // mois sur colonnes trop étroites : initiale seule
   labels.forEach((lab, i) => {
     const v = values[i] || 0, h = (v / top) * ih, x = P.l + i * bw + bw * 0.2, w = bw * 0.6, y = P.t + ih - h;
-    const fill = highlight === i ? '#ffd166' : 'url(#g)';
+    const fill = colors ? colors[i] : 'url(#g)';
     s += `<g class="bg"><rect class="bar" x="${x}" y="${y}" width="${w}" height="${Math.max(h, 0)}" rx="5" fill="${fill}"/>
             <text class="val" x="${x + w / 2}" y="${y - 8}" text-anchor="middle">${fmt(v)} mm</text></g>
           <text class="axis" x="${x + w / 2}" y="${H - 14}" text-anchor="middle">${narrow ? lab[0] : lab}</text>`;
