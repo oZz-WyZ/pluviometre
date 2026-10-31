@@ -4,5 +4,5 @@
 // FIRST_YEAR : première année à charger (onglet le plus ancien).
 window.PLUVIO_CONFIG = {
   SHEET_ID: '1IOQ9Zg5XMYv0TdTme9_Uq8DZJD7VUIbSgif6EvKSd7U',
-  FIRST_YEAR: 2026
+  FIRST_YEAR: 2025
 };
