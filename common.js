@@ -91,6 +91,40 @@ export function monthlyAverage(data, excludeY){
   return sums.map((s, i) => n[i] ? s / n[i] : null);
 }
 
+// Cumul de l'année y jusqu'à la date « MM-JJ » incluse.
+export function cumulTo(data, y, md){
+  return yearEntries(data, y).reduce((a, [k, v]) => k.slice(5) <= md ? a + v : a, 0);
+}
+
+// Records sur tout l'historique. Une série = jours consécutifs relevés (un jour manquant la coupe).
+// shortcut: « année complète » = passée et >= 300 relevés ; à revoir si ton père saute souvent des jours.
+export function records(data){
+  const keys = Object.keys(data).sort();
+  const best = (arr, f) => arr.reduce((b, x) => (!b || f(x) > f(b)) ? x : b, null);
+  const worst = (arr, f) => arr.reduce((b, x) => (!b || f(x) < f(b)) ? x : b, null);
+  const cur = new Date().getFullYear();
+  const yrs = years(data).filter(y => y < cur && yearEntries(data, y).length >= 300)
+    .map(y => ({ y, v: yearEntries(data, y).reduce((a, [, v]) => a + v, 0) }));
+  const months = {};
+  for (const k of keys) months[k.slice(0, 7)] = (months[k.slice(0, 7)] || 0) + data[k];
+  const streak = pred => {
+    let best = null, n = 0, from = null, prev = null;
+    for (const k of keys){
+      const next = prev && Math.round((new Date(k) - new Date(prev)) / 864e5) === 1;
+      if (pred(data[k])){ if (n && next) n++; else { n = 1; from = k; } if (!best || n > best.n) best = { n, from, to: k }; }
+      else n = 0;
+      prev = k;
+    }
+    return best;
+  };
+  return {
+    wetYear: best(yrs, x => x.v), dryYear: worst(yrs, x => x.v),
+    wetMonth: best(Object.entries(months), e => e[1]),
+    day: best(keys.map(k => [k, data[k]]), e => e[1]),
+    dry: streak(v => v === 0), rain: streak(v => v > 0)
+  };
+}
+
 /* ---------- Graphique SVG ---------- */
 
 function niceCeil(x){
