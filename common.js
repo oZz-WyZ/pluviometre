@@ -157,8 +157,11 @@ export function drawBars(el, labels, values, {overlay = null, colors = null} = {
   labels.forEach((lab, i) => {
     const v = values[i] || 0, h = (v / top) * ih, x = P.l + i * bw + bw * 0.2, w = bw * 0.6, y = P.t + ih - h;
     const fill = colors ? colors[i] : 'url(#g)';
+    // Barre assez large : valeur écrite dedans, en permanence. Sinon : au-dessus, au survol.
+    const wide = w >= 84, inside = wide && h >= 30;
+    const cls = !wide ? 'val' : inside ? 'val show in' : 'val show';
     s += `<g class="bg"><rect class="bar" x="${x}" y="${y}" width="${w}" height="${Math.max(h, 0)}" rx="5" fill="${fill}"/>
-            <text class="val" x="${x + w / 2}" y="${y - 8}" text-anchor="middle">${fmt(v)} mm</text></g>
+            <text class="${cls}" x="${x + w / 2}" y="${inside ? y + 22 : y - 8}" text-anchor="middle">${fmt(v)} mm</text></g>
           <text class="axis" x="${x + w / 2}" y="${H - 14}" text-anchor="middle">${narrow ? lab[0] : lab}</text>`;
   });
   if (overlay) overlay.forEach((v, i) => {

@@ -101,3 +101,5 @@ td small{color:var(--muted)}
 
 .val{opacity:0;fill:var(--text);font-size:14px;font-weight:700;pointer-events:none;paint-order:stroke;stroke:#0e2238;stroke-width:4px;stroke-linejoin:round;transition:opacity .12s}
 .bg:hover .val{opacity:1}
+.val.show{opacity:1}
+.val.in{fill:#06213a;stroke:none}
