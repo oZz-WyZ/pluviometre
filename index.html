@@ -83,7 +83,7 @@
 
   <section class="card mb">
     <div class="section-title"><h2>Records</h2></div>
-    <table><tbody id="records"></tbody></table>
+    <div class="records" id="records"></div>
   </section>
 
   <div class="foot">
@@ -155,17 +155,19 @@ function render(){
   drawBars($('cmpChart'), ysAll.map(String), at, { colors: ysAll.map(yearColor) });
 
   const r = records(data);
-  const row = (l, v, s) => v ? `<tr><td>${l}</td><td class="num">${v}<br><small>${s}</small></td></tr>` : '';
-  const ser = x => x && `${x.n} jour(s)`;
-  const per = x => x && `du ${fmtDate(x.from)} au ${fmtDate(x.to)}`;
+  const WET = '#5fd3ff', DRY = '#ff9f68';
+  const tile = (label, num, unit, sub, c) => num == null ? '' :
+    `<div class="rec" style="--c:${c}"><div class="rec-l">${label}</div><div class="rec-v">${num}<span>${unit}</span></div><div class="rec-s">${sub}</div></div>`;
+  const per = x => `du ${fmtDate(x.from)} au ${fmtDate(x.to)}`;
+  const sameYear = r.wetYear && r.dryYear && r.wetYear.y === r.dryYear.y; // une seule année complète : pas de « plus sèche »
   $('records').innerHTML = r.day ? [
-    row('Jour le plus pluvieux', fmt(r.day[1]) + ' mm', fmtDate(r.day[0])),
-    row('Mois le plus pluvieux', r.wetMonth && fmt(r.wetMonth[1]) + ' mm', r.wetMonth && `${MOIS[+r.wetMonth[0].slice(5) - 1]} ${r.wetMonth[0].slice(0, 4)}`),
-    row('Année la plus humide', r.wetYear && fmt(r.wetYear.v) + ' mm', r.wetYear && r.wetYear.y),
-    row('Année la plus sèche', r.dryYear && fmt(r.dryYear.v) + ' mm', r.dryYear && r.dryYear.y),
-    row('Plus longue série sans pluie', ser(r.dry), per(r.dry)),
-    row('Plus longue série de pluie', ser(r.rain), per(r.rain))
-  ].join('') : '<tr><td class="empty">Aucun relevé</td></tr>';
+    tile('Jour le plus pluvieux', fmt(r.day[1]), 'mm', fmtDate(r.day[0]), WET),
+    tile('Mois le plus pluvieux', r.wetMonth && fmt(r.wetMonth[1]), 'mm', r.wetMonth && `${MOIS[+r.wetMonth[0].slice(5) - 1]} ${r.wetMonth[0].slice(0, 4)}`, WET),
+    tile('Année la plus humide', r.wetYear && fmt(r.wetYear.v), 'mm', r.wetYear && r.wetYear.y, WET),
+    sameYear ? '' : tile('Année la plus sèche', r.dryYear && fmt(r.dryYear.v), 'mm', r.dryYear && r.dryYear.y, DRY),
+    tile('Plus longue série sans pluie', r.dry && r.dry.n, 'jours', r.dry && per(r.dry), DRY),
+    tile('Plus longue série de pluie', r.rain && r.rain.n, 'jours', r.rain && per(r.rain), WET)
+  ].join('') : '<div class="empty">Aucun relevé</div>';
 
 }
 

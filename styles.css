@@ -103,3 +103,12 @@ td small{color:var(--muted)}
 .bg:hover .val{opacity:1}
 .val.show{opacity:1}
 .val.in{fill:#06213a;stroke:none}
+
+.records{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+@media(max-width:900px){.records{grid-template-columns:1fr 1fr}}
+@media(max-width:560px){.records{grid-template-columns:1fr}}
+.rec{background:rgba(255,255,255,.05);border:1px solid var(--line);border-left:4px solid var(--c);border-radius:14px;padding:14px 16px}
+.rec-l{color:var(--muted);font-size:.875rem;text-transform:uppercase;letter-spacing:.06em}
+.rec-v{font-size:2rem;font-weight:700;margin-top:6px;line-height:1.1;font-variant-numeric:tabular-nums}
+.rec-v span{font-size:1rem;font-weight:500;color:var(--muted);margin-left:6px}
+.rec-s{color:var(--text);font-size:.95rem;margin-top:6px}
