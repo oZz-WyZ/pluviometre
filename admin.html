@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Saisie · Pluviomètre</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  textarea{width:100%;background:rgba(0,0,0,.25);border:1px solid var(--line);color:var(--text);border-radius:12px;padding:10px 12px;font-size:1rem;font-family:inherit;resize:vertical;color-scheme:dark}
+  textarea:focus{outline:2px solid var(--accent);outline-offset:1px}
+  .bubble{background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-top:12px}
+  .bubble table td{padding:6px 4px}
+  .bad{color:var(--danger)}
+</style>
+</head>
+<body>
+<div class="rain" id="rain"></div>
+
+<main>
+  <!-- Écran de connexion -->
+  <section id="loginView" class="card login hidden">
+    <h1>☔ Connexion</h1>
+    <div class="sub">Espace de saisie du pluviomètre</div>
+    <form id="loginForm">
+      <label>Adresse e-mail <input type="email" id="email" autocomplete="username" required></label>
+      <label>Mot de passe <input type="password" id="password" autocomplete="current-password" required></label>
+      <div class="error" id="loginError"></div>
+      <button type="submit" id="loginBtn">Se connecter</button>
+    </form>
+    <p style="margin-top:18px"><a href="index.html">← Voir les relevés</a></p>
+  </section>
+
+  <!-- Espace de saisie -->
+  <div id="adminView" class="hidden">
+    <header class="top">
+      <div>
+        <h1>☔ Saisie des relevés</h1>
+        <div class="sub">Nieul-le-Dolent · pluie du jour en mm</div>
+      </div>
+      <div class="actions">
+        <a href="index.html" style="text-decoration:none;padding:11px 18px;border:1px solid var(--line);border-radius:12px;color:var(--text)">Voir les graphiques</a>
+        <button type="button" class="ghost" id="logoutBtn">Déconnexion</button>
+      </div>
+    </header>
+
+    <section class="card mb">
+      <form class="entry" id="entryForm">
+        <label>Date <input type="date" id="date" required></label>
+        <label>Pluie (mm) <input type="text" id="mm" inputmode="decimal" placeholder="0,0" autocomplete="off" required></label>
+        <button type="submit" id="saveBtn">Enregistrer</button>
+        <button type="button" class="ghost" id="todayBtn">Aujourd'hui</button>
+      </form>
+    </section>
+
+    <section class="card mb">
+      <div class="section-title">
+        <h2>Assistant de saisie</h2>
+        <div class="legend">Ex. : « hier 3,2 mm » · « 12/10 : 0 » · « le 28 octobre 1,4 » — une ligne par jour</div>
+      </div>
+      <textarea id="chatInput" rows="4" placeholder="hier 3,2 mm&#10;avant-hier 0&#10;le 28 octobre 1,4"></textarea>
+      <div class="actions" style="margin-top:10px">
+        <button type="button" id="analyseBtn">Analyser</button>
+      </div>
+      <div id="preview" class="bubble hidden"></div>
+      <div class="actions hidden" id="confirmBar" style="margin-top:10px">
+        <button type="button" id="confirmBtn">Confirmer et enregistrer</button>
+        <button type="button" class="ghost" id="cancelBtn">Annuler</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="section-title">
+        <h2>Relevés récents</h2>
+        <div class="actions">
+          <button type="button" class="ghost" id="importBtn">Importer CSV</button>
+          <input type="file" id="importFile" accept=".csv,text/csv" class="file">
+        </div>
+      </div>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>Date</th><th class="num">Pluie (mm)</th><th class="num"></th></tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script src="config.js"></script>
+<script type="module">
+import { sb, $, fmt, fmtDate, todayISO, toast, buildRain, loadData, saveReleve, deleteReleve, importReleves, parseChat } from './common.js';
+
+let data = {};
+let pending = {};
+
+// Assistant : analyse le texte et affiche un aperçu à confirmer
+$('analyseBtn').addEventListener('click', () => {
+  const res = parseChat($('chatInput').value);
+  if (!res.length){ toast('Écrivez au moins une ligne'); return; }
+  pending = {};
+  const rows = res.map(r => {
+    if (r.erreur) return `<tr><td class="bad">${r.ligne}</td><td colspan="2" class="bad">${r.erreur}</td></tr>`;
+    pending[r.jour] = r.mm;
+    const old = data[r.jour];
+    const note = old != null ? ` <span class="sub">(remplace ${fmt(old)} mm)</span>` : '';
+    return `<tr><td>${fmtDate(r.jour)}${note}</td><td class="num">${fmt(r.mm)} mm</td><td class="sub">${r.ligne}</td></tr>`;
+  }).join('');
+  const n = Object.keys(pending).length;
+  $('preview').innerHTML = `<div class="sub" style="margin-bottom:8px">${n
+    ? `J'ai compris ${n} relevé(s). Vérifiez avant d'enregistrer :`
+    : "Je n'ai reconnu aucun relevé. Corrigez le texte puis réessayez."}</div>
+    <table>${rows}</table>`;
+  $('preview').classList.remove('hidden');
+  $('confirmBar').classList.toggle('hidden', n === 0);
+});
+
+$('cancelBtn').addEventListener('click', () => {
+  pending = {};
+  $('preview').classList.add('hidden');
+  $('confirmBar').classList.add('hidden');
+});
+
+$('confirmBtn').addEventListener('click', async () => {
+  if (!Object.keys(pending).length) return;
+  $('confirmBtn').disabled = true;
+  try {
+    const n = await importReleves(pending);
+    data = { ...data, ...pending };
+    renderList();
+    prefill();
+    $('chatInput').value = '';
+    $('cancelBtn').click();
+    toast(`${n} relevé(s) enregistré(s)`);
+  } catch (err) {
+    console.error(err);
+    toast("Échec de l'enregistrement, vérifiez la connexion");
+  } finally {
+    $('confirmBtn').disabled = false;
+  }
+});
+
+const showLogin = () => { $('adminView').classList.add('hidden'); $('loginView').classList.remove('hidden'); };
+const showAdmin = () => { $('loginView').classList.add('hidden'); $('adminView').classList.remove('hidden'); };
+
+function prefill(){
+  const v = data[$('date').value];
+  $('mm').value = v != null ? String(v).replace('.', ',') : '';
+}
+
+function renderList(){
+  const keys = Object.keys(data).sort().reverse().slice(0, 60);
+  $('tbody').innerHTML = keys.length
+    ? keys.map(d => `<tr><td>${fmtDate(d)}</td><td class="num">${fmt(data[d])}</td>
+        <td class="num"><button class="danger" data-del="${d}">Supprimer</button></td></tr>`).join('')
+    : `<tr><td colspan="3" class="empty">Aucun relevé pour le moment</td></tr>`;
+}
+
+async function enterAdmin(){
+  showAdmin();
+  $('date').value = todayISO();
+  try {
+    data = await loadData();
+  } catch (e) {
+    console.error(e);
+    toast('Impossible de charger les relevés');
+  }
+  renderList();
+  prefill();
+}
+
+// Connexion
+$('loginForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  $('loginBtn').disabled = true;
+  $('loginError').textContent = '';
+  const { error } = await sb.auth.signInWithPassword({ email: $('email').value.trim(), password: $('password').value });
+  $('loginBtn').disabled = false;
+  if (error){ $('loginError').textContent = 'E-mail ou mot de passe incorrect.'; return; }
+  $('password').value = '';
+  enterAdmin();
+});
+
+$('logoutBtn').addEventListener('click', async () => { await sb.auth.signOut(); data = {}; showLogin(); });
+
+// Saisie
+$('date').addEventListener('change', prefill);
+$('todayBtn').addEventListener('click', () => { $('date').value = todayISO(); prefill(); $('mm').focus(); });
+
+$('entryForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const d = $('date').value;
+  const raw = $('mm').value.trim().replace(',', '.');
+  const v = Number(raw);
+  if (!d || raw === '' || isNaN(v) || v < 0){ toast('Valeur invalide'); $('mm').focus(); return; }
+  const mm = Math.round(v * 10) / 10;
+  $('saveBtn').disabled = true;
+  try {
+    await saveReleve(d, mm);
+    data[d] = mm;
+    renderList();
+    prefill();
+    toast(`Enregistré : ${fmt(mm)} mm le ${fmtDate(d)}`);
+  } catch (err) {
+    console.error(err);
+    toast("Échec de l'enregistrement, vérifiez la connexion");
+  } finally {
+    $('saveBtn').disabled = false;
+  }
+});
+
+// Suppression
+$('tbody').addEventListener('click', async e => {
+  const d = e.target.dataset.del;
+  if (!d || !confirm(`Supprimer le relevé du ${fmtDate(d)} ?`)) return;
+  try {
+    await deleteReleve(d);
+    delete data[d];
+    renderList();
+    prefill();
+    toast('Relevé supprimé');
+  } catch (err) {
+    console.error(err);
+    toast('Échec de la suppression');
+  }
+});
+
+// Import CSV (séparateur « ; » ou tabulation, dates AAAA-MM-JJ ou JJ/MM/AAAA)
+$('importBtn').addEventListener('click', () => $('importFile').click());
+$('importFile').addEventListener('change', async e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const entries = {};
+  for (const line of (await f.text()).split(/\r?\n/)){
+    const parts = line.split(/[;\t]/);
+    if (parts.length < 2) continue;
+    const a = parts[0].trim(), b = parts[1].trim();
+    let key = null;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(a)) key = a;
+    else if (/^\d{2}\/\d{2}\/\d{4}$/.test(a)){ const [dd, mo, yy] = a.split('/'); key = `${yy}-${mo}-${dd}`; }
+    const v = Number(b.replace(',', '.'));
+    if (!key || b === '' || isNaN(v)) continue;
+    entries[key] = v;
+  }
+  try {
+    const n = await importReleves(entries);
+    data = { ...data, ...entries };
+    renderList();
+    prefill();
+    toast(`${n} relevé(s) importé(s)`);
+  } catch (err) {
+    console.error(err);
+    toast("Échec de l'import");
+  }
+  e.target.value = '';
+});
+
+// Démarrage : si la session est déjà ouverte, on entre directement
+buildRain();
+(async () => {
+  const { data: s } = await sb.auth.getSession();
+  if (s.session) enterAdmin(); else showLogin();
+})();
+</script>
+</body>
+</html>
