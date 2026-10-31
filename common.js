@@ -135,7 +135,8 @@ function niceCeil(x){
 }
 
 export function drawBars(el, labels, values, {overlay = null, highlight = null} = {}){
-  const W = 760, H = 260, P = {t: 20, r: 12, b: 34, l: 44};
+  // SVG à l'échelle 1:1 (viewBox = largeur réelle) pour garder des textes de 14 px lisibles.
+  const W = Math.max(280, el.clientWidth || 760), H = 300, P = {t: 20, r: 12, b: 40, l: 52};
   const max = Math.max(1, ...values.map(v => v || 0), ...(overlay || []).map(v => v || 0));
   const top = niceCeil(max);
   const iw = W - P.l - P.r, ih = H - P.t - P.b, bw = iw / labels.length;
@@ -148,12 +149,13 @@ export function drawBars(el, labels, values, {overlay = null, highlight = null} 
     s += `<line x1="${P.l}" x2="${W - P.r}" y1="${y}" y2="${y}" stroke="rgba(255,255,255,.1)"/>
           <text class="axis" x="${P.l - 8}" y="${y + 4}" text-anchor="end">${fmt(v, 0)}</text>`;
   }
+  const narrow = bw < 44 && labels.length === 12; // mois sur colonnes trop étroites : initiale seule
   labels.forEach((lab, i) => {
     const v = values[i] || 0, h = (v / top) * ih, x = P.l + i * bw + bw * 0.2, w = bw * 0.6, y = P.t + ih - h;
     const fill = highlight === i ? '#ffd166' : 'url(#g)';
     s += `<rect class="bar" x="${x}" y="${y}" width="${w}" height="${Math.max(h, 0)}" rx="5" fill="${fill}">
             <title>${lab} : ${fmt(v)} mm</title></rect>
-          <text class="axis" x="${x + w / 2}" y="${H - 12}" text-anchor="middle">${lab}</text>`;
+          <text class="axis" x="${x + w / 2}" y="${H - 14}" text-anchor="middle">${narrow ? lab[0] : lab}</text>`;
   });
   if (overlay) overlay.forEach((v, i) => {
     if (v == null) return;

@@ -191,6 +191,7 @@ dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
 dlg.addEventListener('close', async () => {
   try { data = await loadData(); refreshYears(); render(); } catch (e) { console.error(e); }
 });
+let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(render, 150); });
 init();
 </script>
 </body>
