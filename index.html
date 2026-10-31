@@ -80,10 +80,21 @@
   <div class="foot">
     <small id="status">Chargement des relevés…</small>
     <div class="actions">
-      <a href="https://docs.google.com/spreadsheets/d/1IOQ9Zg5XMYv0TdTme9_Uq8DZJD7VUIbSgif6EvKSd7U/edit" target="_blank" rel="noopener" class="ghost" style="text-decoration:none;padding:11px 18px;border:1px solid var(--line);border-radius:12px;color:var(--text)">Ouvrir le tableau</a>
+      <button type="button" class="ghost" id="openSheet">Ouvrir le tableau</button>
     </div>
   </div>
 </main>
+
+<dialog id="sheetDlg">
+  <div class="dlg-bar">
+    <strong>Tableau des relevés</strong>
+    <span>
+      <a href="https://docs.google.com/spreadsheets/d/1IOQ9Zg5XMYv0TdTme9_Uq8DZJD7VUIbSgif6EvKSd7U/edit" target="_blank" rel="noopener">Ouvrir dans un onglet</a>
+      <button type="button" class="ghost" id="closeSheet" aria-label="Fermer">✕ Fermer</button>
+    </span>
+  </div>
+  <iframe id="sheetFrame" data-src="https://docs.google.com/spreadsheets/d/1IOQ9Zg5XMYv0TdTme9_Uq8DZJD7VUIbSgif6EvKSd7U/edit?rm=minimal" title="Tableau des relevés"></iframe>
+</dialog>
 
 <div class="toast" id="toast"></div>
 
@@ -169,6 +180,17 @@ async function init(){
     $('status').textContent = 'Relevés indisponibles pour le moment.';
   }
 }
+const dlg = $('sheetDlg'), frame = $('sheetFrame');
+$('openSheet').addEventListener('click', () => {
+  if (!frame.src) frame.src = frame.dataset.src;
+  dlg.showModal();
+});
+$('closeSheet').addEventListener('click', () => dlg.close());
+dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
+// À la fermeture, recharge les relevés pour afficher les saisies faites dans le tableau.
+dlg.addEventListener('close', async () => {
+  try { data = await loadData(); refreshYears(); render(); } catch (e) { console.error(e); }
+});
 init();
 </script>
 </body>
