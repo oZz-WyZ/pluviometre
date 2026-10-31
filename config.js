@@ -1,8 +1,8 @@
-// Configuration Supabase.
-// Remplacer ces deux valeurs par celles de votre projet :
-// Supabase > Project Settings > API > "Project URL" et "anon public" key.
-// La clé "anon" est publique par conception : la sécurité repose sur les règles RLS (voir supabase.sql).
+// Google Sheet : un onglet par année (« 2026 », « 2025 »…).
+// SHEET_ID : la partie entre /d/ et /edit dans l'adresse du Sheet.
+// Le Sheet doit être partagé « Tous les utilisateurs disposant du lien : Lecteur ».
+// FIRST_YEAR : première année à charger (onglet le plus ancien).
 window.PLUVIO_CONFIG = {
-  SUPABASE_URL: 'https://ndbeyszvvkudrewnlaiu.supabase.co',
-  SUPABASE_ANON_KEY: 'sb_publishable_6AVIHt2pZxV1CBv6IyRBHQ_sinquzW_'
+  SHEET_ID: '1IOQ9Zg5XMYv0TdTme9_Uq8DZJD7VUIbSgif6EvKSd7U',
+  FIRST_YEAR: 2026
 };

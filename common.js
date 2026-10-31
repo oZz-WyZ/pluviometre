@@ -1,7 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
 const cfg = window.PLUVIO_CONFIG || {};
-export const sb = createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
 
 export const MOIS = ['Janv.','Févr.','Mars','Avr.','Mai','Juin','Juil.','Août','Sept.','Oct.','Nov.','Déc.'];
 export const $ = id => document.getElementById(id);
@@ -21,36 +18,52 @@ export function toast(msg){
 
 /* ---------- Données ---------- */
 
-// Charge tous les relevés sous forme { 'AAAA-MM-JJ': mm }, par pages de 1000 lignes.
-export async function loadData(){
+// Découpe un CSV (champs entre guillemets, virgule ou point-virgule) en lignes de cellules.
+function parseCSV(text){
+  const sep = (text.split('\n')[0].match(/;/g) || []).length ? ';' : ',';
+  const rows = []; let row = [], cell = '', q = false;
+  for (let i = 0; i < text.length; i++){
+    const c = text[i];
+    if (q){ if (c === '"'){ if (text[i+1] === '"'){ cell += '"'; i++; } else q = false; } else cell += c; }
+    else if (c === '"') q = true;
+    else if (c === sep){ row.push(cell); cell = ''; }
+    else if (c === '\n' || c === '\r'){ if (c === '\r' && text[i+1] === '\n') i++; row.push(cell); rows.push(row); row = []; cell = ''; }
+    else cell += c;
+  }
+  if (cell || row.length){ row.push(cell); rows.push(row); }
+  return rows;
+}
+
+// Lit le Google Sheet : un onglet par année, nommé « 2026 », « 2025 »…
+// Onglet : A1 = année, B1:M1 = mois, A2:A32 = jours 1..31, B2:M32 = mm (cellule vide = pas de relevé).
+// Renvoie { 'AAAA-MM-JJ': mm }. Un onglet absent ou mal formé est ignoré.
+async function loadYear(y){
+  const url = `https://docs.google.com/spreadsheets/d/${cfg.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${y}`;
+  const res = await fetch(url, { cache: 'no-store' });
+  if (!res.ok) return null;
+  const rows = parseCSV(await res.text());
+  // Google renvoie le 1er onglet si le nom n'existe pas : A1 doit contenir l'année demandée.
+  if (!rows.length || String(rows[0][0]).replace(/\D/g, '') !== String(y)) return null;
   const out = {};
-  const PAGE = 1000;
-  for (let from = 0; ; from += PAGE){
-    const { data, error } = await sb.from('releves').select('jour,mm').order('jour').range(from, from + PAGE - 1);
-    if (error) throw error;
-    for (const r of data) out[r.jour] = Number(r.mm);
-    if (data.length < PAGE) break;
+  for (const row of rows.slice(1, 32)){
+    const day = +String(row[0]).trim();
+    if (!(day >= 1 && day <= 31)) continue;
+    for (let m = 0; m < 12; m++){
+      const raw = String(row[m + 1] ?? '').trim().replace(',', '.');
+      const mm = Number(raw);
+      const dt = new Date(y, m, day);
+      if (raw !== '' && isFinite(mm) && mm >= 0 && dt.getMonth() === m) out[isoOf(dt)] = mm;
+    }
   }
   return out;
 }
 
-export async function saveReleve(jour, mm){
-  const { error } = await sb.from('releves').upsert({ jour, mm }, { onConflict: 'jour' });
-  if (error) throw error;
-}
-
-export async function deleteReleve(jour){
-  const { error } = await sb.from('releves').delete().eq('jour', jour);
-  if (error) throw error;
-}
-
-export async function importReleves(entries){
-  const rows = Object.entries(entries).map(([jour, mm]) => ({ jour, mm }));
-  for (let i = 0; i < rows.length; i += 500){
-    const { error } = await sb.from('releves').upsert(rows.slice(i, i + 500), { onConflict: 'jour' });
-    if (error) throw error;
-  }
-  return rows.length;
+export async function loadData(){
+  const now = new Date().getFullYear(), first = cfg.FIRST_YEAR || now;
+  const ys = Array.from({ length: now - first + 1 }, (_, i) => first + i);
+  const parts = await Promise.all(ys.map(y => loadYear(y).catch(() => null)));
+  if (parts.every(p => p === null)) throw new Error('Aucun onglet lisible');
+  return Object.assign({}, ...parts.filter(Boolean));
 }
 
 /* ---------- Calculs ---------- */
@@ -114,58 +127,6 @@ export function drawBars(el, labels, values, {overlay = null, highlight = null} 
     s += `<line x1="${x1}" x2="${x2}" y1="${y}" y2="${y}" stroke="#ffd166" stroke-width="2.5" stroke-dasharray="4 3"><title>Moyenne : ${fmt(v)} mm</title></line>`;
   });
   el.innerHTML = s + '</svg>';
-}
-
-/* ---------- Assistant de saisie (texte libre -> relevés) ---------- */
-
-const MOIS_FR = ['janvier','fevrier','mars','avril','mai','juin','juillet','aout','septembre','octobre','novembre','decembre'];
-const norm = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-
-// Transforme un texte libre en relevés. Une ligne (ou un segment séparé par « ; ») = un relevé.
-// Renvoie [{ ligne, jour, mm }] ou [{ ligne, erreur }].
-export function parseChat(text, today = new Date()){
-  const todayIso = isoOf(today);
-  const addDays = n => { const d = new Date(today); d.setDate(d.getDate() + n); return isoOf(d); };
-  const fullDate = (y, m, d) => {
-    const dt = new Date(y, m - 1, d);
-    return dt.getMonth() === m - 1 ? isoOf(dt) : null;
-  };
-  const results = [];
-
-  for (const line of text.split(/\r?\n|;/).map(l => l.trim()).filter(Boolean)){
-    let s = norm(line);
-    let date = null, dateFound = false, m;
-
-    if ((m = s.match(/demain/))){ date = addDays(1); dateFound = true; s = s.replace(m[0], ' '); }
-    else if ((m = s.match(/avant[- ]hier/))){ date = addDays(-2); dateFound = true; s = s.replace(m[0], ' '); }
-    else if ((m = s.match(/\bhier\b/))){ date = addDays(-1); dateFound = true; s = s.replace(m[0], ' '); }
-    else if ((m = s.match(/aujourd ?hui/))){ date = todayIso; dateFound = true; s = s.replace(m[0], ' '); }
-    else if ((m = s.match(/(\d{1,2})\/(\d{1,2})(?:\/(\d{4}|\d{2}))?/))){
-      let y = m[3] ? +m[3] : today.getFullYear();
-      if (y < 100) y += 2000;
-      date = fullDate(y, +m[2], +m[1]); dateFound = true; s = s.replace(m[0], ' ');
-    }
-    else if ((m = s.match(new RegExp(`\\b(\\d{1,2})(?:er)?\\s+(${MOIS_FR.join('|')})(?:\\s+(\\d{4}))?\\b`)))){
-      const y = m[3] ? +m[3] : today.getFullYear();
-      date = fullDate(y, MOIS_FR.indexOf(m[2]) + 1, +m[1]); dateFound = true; s = s.replace(m[0], ' ');
-    }
-    else if ((m = s.match(/\ble (\d{1,2})\b/))){
-      date = fullDate(today.getFullYear(), today.getMonth() + 1, +m[1]); dateFound = true; s = s.replace(m[0], ' ');
-    }
-
-    if (!dateFound) date = todayIso;
-    if (date === null){ results.push({ ligne: line, erreur: 'Date invalide' }); continue; }
-    if (date > todayIso){ results.push({ ligne: line, erreur: 'Date future' }); continue; }
-
-    const nums = [...s.matchAll(/\d+(?:[.,]\d+)?/g)].map(x => x[0]);
-    let mm = null;
-    if (nums.length) mm = Number(nums[nums.length - 1].replace(',', '.'));
-    else if (/\b(rien|zero|pas de pluie|sec)\b/.test(s)) mm = 0;
-
-    if (mm === null || isNaN(mm)) results.push({ ligne: line, erreur: 'Quantité introuvable' });
-    else results.push({ ligne: line, jour: date, mm: Math.round(mm * 10) / 10 });
-  }
-  return results;
 }
 
 export function buildRain(){
