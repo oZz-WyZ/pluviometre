@@ -57,22 +57,33 @@
     </div>
     <div class="card">
       <div class="section-title">
-        <h2>Totaux annuels</h2>
+        <h2>Jours de pluie par mois</h2>
+        <div class="legend">
+          <span id="legYear2">Cette année</span>
+          <span class="dash">Moyenne des autres années</span>
+        </div>
       </div>
-      <div id="yearChart"></div>
+      <div id="rainChart"></div>
     </div>
   </section>
 
   <section class="grid g-2 mb">
     <div class="card">
+      <div class="section-title">
+        <h2>Totaux annuels</h2>
+      </div>
+      <div id="yearChart"></div>
+    </div>
+    <div class="card">
       <div class="section-title"><h2 id="cmpTitle">Comparaison à date</h2></div>
       <div class="stat"><div class="value" id="cmpVal">—</div><div class="hint" id="cmpHint"></div></div>
       <div id="cmpChart"></div>
     </div>
-    <div class="card">
-      <div class="section-title"><h2>Records</h2></div>
-      <table><tbody id="records"></tbody></table>
-    </div>
+  </section>
+
+  <section class="card mb">
+    <div class="section-title"><h2>Records</h2></div>
+    <table><tbody id="records"></tbody></table>
   </section>
 
   <div class="foot">
@@ -98,7 +109,7 @@
 
 <script src="config.js"></script>
 <script type="module">
-import { $, fmt, fmtDate, MOIS, loadData, years, yearEntries, monthlyTotals, monthlyAverage, yearColor, cumulTo, records, todayISO, drawBars, buildRain } from './common.js';
+import { $, fmt, fmtDate, MOIS, loadData, years, yearEntries, monthlyTotals, monthlyRainyDays, monthlyAverage, yearColor, cumulTo, records, todayISO, drawBars, buildRain } from './common.js';
 
 let data = {};
 
@@ -121,7 +132,10 @@ function render(){
   $('sRainyHint').textContent = entries.length ? `${Math.round(rainy / entries.length * 100)} % des relevés` : '';
 
   $('legYear').style.setProperty('--c', yearColor(y));
+  $('legYear2').style.setProperty('--c', yearColor(y));
   drawBars($('monthChart'), MOIS, t, { overlay: monthlyAverage(data, y), colors: MOIS.map(() => yearColor(y)) });
+
+  drawBars($('rainChart'), MOIS, monthlyRainyDays(data, y).t, { overlay: monthlyAverage(data, y, monthlyRainyDays), colors: MOIS.map(() => yearColor(y)), unit: 'j', dec: 0, top: 32 });
 
   const ys = years(data).filter(yy => yearEntries(data, yy).length);
   const totals = ys.map(yy => yearEntries(data, yy).reduce((a, [, v]) => a + v, 0));

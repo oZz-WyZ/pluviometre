@@ -81,11 +81,17 @@ export function monthlyTotals(data, y){
   for (const [k, v] of yearEntries(data, y)){ const m = +k.slice(5, 7) - 1; t[m] += v; c[m]++; }
   return { t, c };
 }
-export function monthlyAverage(data, excludeY){
+// Jours de pluie (> 0 mm) par mois ; même forme que monthlyTotals : t = nombre de jours de pluie, c = nombre de relevés.
+export function monthlyRainyDays(data, y){
+  const t = Array(12).fill(0), c = Array(12).fill(0);
+  for (const [k, v] of yearEntries(data, y)){ const m = +k.slice(5, 7) - 1; if (v > 0) t[m]++; c[m]++; }
+  return { t, c };
+}
+export function monthlyAverage(data, excludeY, series = monthlyTotals){
   const sums = Array(12).fill(0), n = Array(12).fill(0);
   for (const y of years(data)){
     if (y === excludeY) continue;
-    const { t, c } = monthlyTotals(data, y);
+    const { t, c } = series(data, y);
     for (let m = 0; m < 12; m++) if (c[m] > 0){ sums[m] += t[m]; n[m]++; }
   }
   return sums.map((s, i) => n[i] ? s / n[i] : null);
@@ -138,11 +144,11 @@ function niceCeil(x){
 const PALETTE = ['#5fd3ff','#7bdc9a','#ff8fab','#b794f6','#ff9f68','#4dd4c6','#c3d96b','#6f9bff'];
 export const yearColor = y => PALETTE[y % PALETTE.length];
 
-export function drawBars(el, labels, values, {overlay = null, colors = null} = {}){
+export function drawBars(el, labels, values, {overlay = null, colors = null, unit = 'mm', dec = 1, top: forcedTop = null} = {}){
   // SVG à l'échelle 1:1 (viewBox = largeur réelle) pour garder des textes de 14 px lisibles.
   const W = Math.max(280, el.clientWidth || 760), H = 300, P = {t: 30, r: 12, b: 40, l: 52};
   const max = Math.max(1, ...values.map(v => v || 0), ...(overlay || []).map(v => v || 0));
-  const top = niceCeil(max);
+  const top = forcedTop || niceCeil(max);
   const iw = W - P.l - P.r, ih = H - P.t - P.b, bw = iw / labels.length;
   let s = `<svg viewBox="0 0 ${W} ${H}" class="chart" role="img">
     <defs><linearGradient id="g" x1="0" x2="0" y1="0" y2="1">
@@ -161,13 +167,13 @@ export function drawBars(el, labels, values, {overlay = null, colors = null} = {
     const wide = w >= 84, inside = wide && h >= 30;
     const cls = !wide ? 'val' : inside ? 'val show in' : 'val show';
     s += `<g class="bg"><rect class="bar" x="${x}" y="${y}" width="${w}" height="${Math.max(h, 0)}" rx="5" fill="${fill}"/>
-            <text class="${cls}" x="${x + w / 2}" y="${inside ? y + 22 : y - 8}" text-anchor="middle">${fmt(v)} mm</text></g>
+            <text class="${cls}" x="${x + w / 2}" y="${inside ? y + 22 : y - 8}" text-anchor="middle">${fmt(v, dec)} ${unit}</text></g>
           <text class="axis" x="${x + w / 2}" y="${H - 14}" text-anchor="middle">${narrow ? lab[0] : lab}</text>`;
   });
   if (overlay) overlay.forEach((v, i) => {
     if (v == null) return;
     const x1 = P.l + i * bw + bw * 0.15, x2 = P.l + i * bw + bw * 0.85, y = P.t + ih - (v / top) * ih;
-    s += `<line x1="${x1}" x2="${x2}" y1="${y}" y2="${y}" stroke="#ffd166" stroke-width="2.5" stroke-dasharray="4 3"><title>Moyenne : ${fmt(v)} mm</title></line>`;
+    s += `<line x1="${x1}" x2="${x2}" y1="${y}" y2="${y}" stroke="#ffd166" stroke-width="2.5" stroke-dasharray="4 3"><title>Moyenne : ${fmt(v, dec)} ${unit}</title></line>`;
   });
   el.innerHTML = s + '</svg>';
 }
