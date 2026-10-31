@@ -137,7 +137,6 @@ function render(){
   if (entries.length && others.length){
     const avg = others.reduce((a, b) => a + b, 0) / others.length, d = cumulTo(data, y, md) - avg;
     $('cmpVal').textContent = `${d >= 0 ? '+' : '−'}${fmt(Math.abs(d))} mm`;
-    $('cmpHint').textContent = `${fmt(cumulTo(data, y, md))} mm contre ${fmt(avg)} mm en moyenne les autres années` + (avg ? ` (${d >= 0 ? '+' : '−'}${Math.round(Math.abs(d) / avg * 100)} %)` : '');
   } else { $('cmpVal').textContent = '—'; $('cmpHint').textContent = 'Pas d\'autre année à comparer'; }
   drawBars($('cmpChart'), ysAll.map(String), at, { highlight: ysAll.indexOf(y) });
 

@@ -98,3 +98,6 @@ dialog::backdrop{background:rgba(3,10,20,.7);backdrop-filter:blur(3px)}
 
 small{font-size:.875rem}
 td small{color:var(--muted)}
+
+.val{opacity:0;fill:var(--text);font-size:14px;font-weight:700;pointer-events:none;paint-order:stroke;stroke:#0e2238;stroke-width:4px;stroke-linejoin:round;transition:opacity .12s}
+.bg:hover .val{opacity:1}

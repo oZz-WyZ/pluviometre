@@ -136,7 +136,7 @@ function niceCeil(x){
 
 export function drawBars(el, labels, values, {overlay = null, highlight = null} = {}){
   // SVG à l'échelle 1:1 (viewBox = largeur réelle) pour garder des textes de 14 px lisibles.
-  const W = Math.max(280, el.clientWidth || 760), H = 300, P = {t: 20, r: 12, b: 40, l: 52};
+  const W = Math.max(280, el.clientWidth || 760), H = 300, P = {t: 30, r: 12, b: 40, l: 52};
   const max = Math.max(1, ...values.map(v => v || 0), ...(overlay || []).map(v => v || 0));
   const top = niceCeil(max);
   const iw = W - P.l - P.r, ih = H - P.t - P.b, bw = iw / labels.length;
@@ -153,8 +153,8 @@ export function drawBars(el, labels, values, {overlay = null, highlight = null} 
   labels.forEach((lab, i) => {
     const v = values[i] || 0, h = (v / top) * ih, x = P.l + i * bw + bw * 0.2, w = bw * 0.6, y = P.t + ih - h;
     const fill = highlight === i ? '#ffd166' : 'url(#g)';
-    s += `<rect class="bar" x="${x}" y="${y}" width="${w}" height="${Math.max(h, 0)}" rx="5" fill="${fill}">
-            <title>${lab} : ${fmt(v)} mm</title></rect>
+    s += `<g class="bg"><rect class="bar" x="${x}" y="${y}" width="${w}" height="${Math.max(h, 0)}" rx="5" fill="${fill}"/>
+            <text class="val" x="${x + w / 2}" y="${y - 8}" text-anchor="middle">${fmt(v)} mm</text></g>
           <text class="axis" x="${x + w / 2}" y="${H - 14}" text-anchor="middle">${narrow ? lab[0] : lab}</text>`;
   });
   if (overlay) overlay.forEach((v, i) => {
